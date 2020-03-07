@@ -6,7 +6,7 @@
 
     <groupId>com.jthinking.util</groupId>
     <artifactId>file-sniffer</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1</version>
 
     <name>file-sniffer</name>
     <url>https://github.com/jthinking/file-sniffer</url>
@@ -17,6 +17,9 @@
         <java.version>1.8</java.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <logback.version>1.2.3</logback.version>
+        <commons-io.version>2.6</commons-io.version>
+        <junit.version>4.11</junit.version>
     </properties>
 
     <dependencies>
@@ -24,21 +27,21 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.2.3</version>
+            <version>${logback.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.6</version>
+            <version>${commons-io.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.11</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -74,5 +77,13 @@
             </plugin>
         </plugins>
     </build>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub jthinking Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/jthinking/file-sniffer</url>
+        </repository>
+    </distributionManagement>
 
 </project>
