@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class AppTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AppTest.class);
-    @Test
+    //@Test
     public void testFileSniffer() throws Exception {
 
         // 仿Kafka实现
