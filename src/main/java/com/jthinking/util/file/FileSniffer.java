@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.CountDownLatch;
 
 public class FileSniffer implements Closeable {
 
@@ -62,6 +63,22 @@ public class FileSniffer implements Closeable {
      */
     private volatile boolean logListenFlag = true;
     private volatile boolean queueSizeCheckFlag = true;
+
+    /**
+     * 阻塞
+     */
+    private CountDownLatch latch = new CountDownLatch(1);
+
+    {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                close();
+            } catch (IOException e) {
+                LOGGER.error("", e);
+            }
+            latch.countDown();
+        }));
+    }
 
     public FileSniffer(File logFile) {
         this.logFile = logFile;
@@ -242,6 +259,18 @@ public class FileSniffer implements Closeable {
         startTailer();
         startQueueListen();
         startQueueSizeCheck();
+    }
+
+    /**
+     * 启动FileSniffer并阻塞，直到Ctrl+C退出
+     */
+    public void startBlockUtilCancel() {
+        start();
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            LOGGER.error("", e);
+        }
     }
 
     /**
