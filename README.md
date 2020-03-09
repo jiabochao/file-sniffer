@@ -8,67 +8,86 @@
 
 ## 快速开始
 
-1. 创建`FileSniffer`对象，一个`FileSniffer`对象对应监听一个文件。
+1. 添加Maven依赖
+
+    ```xml
+    <dependency>
+      <groupId>com.jthinking.util</groupId>
+      <artifactId>file-sniffer</artifactId>
+      <version>1.2</version>
+    </dependency>
+    ```
+
+2. 创建`FileSniffer`对象，一个`FileSniffer`对象对应监听一个文件。
 
     ```java
     FileSniffer fs = new FileSniffer(new File("test.log"));
     ```
 
-2. 配置`FileSniffer`对象。
+3. 配置`FileSniffer`对象。
 
     ```java
-    fs.setCacheQueueSize(10000); ①
-    fs.setCacheQueueFullPolicy(CacheQueueFullPolicy.DELETE_OLD); ② 
+    fs.setCacheQueueSize(10000); // (1)
+    fs.setCacheQueueFullPolicy(CacheQueueFullPolicy.DELETE_OLD); // (2) 
     ```
-    > ① 设置一级缓存队列长度
+    > (1) 设置一级缓存队列长度
     >
-    > ② 设置一级缓存队列满时处理策略
-    > 
+    > (2) 设置一级缓存队列满时处理策略
     > 
 
-3. 配置一级缓存队列满时处理策略丢弃数据监听器
+4. 配置一级缓存队列满时处理策略丢弃数据监听器
 
     ```java
     fs.setCacheQueueFullListener( (policy, line) -> {
-        // 拒绝策略丢弃的数据在这里输出
-        LOGGER.info("丢弃 {} {}", policy, line);
+        // (1)
     } );
     ```
+    > (1) 拒绝策略丢弃的数据在这里输出
 
-4. 添加数据追加监听器
+5. 添加数据追加监听器
 
     ```java
-    // 创建数据追加监听器实例
+    // (1)
     CacheQueueListener pushListener = new CacheQueueListener("group-id-1", "listener-id-1") {
         @Override
         public void process(String newLine) {
-            // 处理逻辑写在这里...
+            // (2)
         }
     };
-    // 添加创建好的监听器
-    fs.addCacheQueueListener(pushListener);
+    
+    fs.addCacheQueueListener(pushListener); // (3)
 
-    // 可添加多个监听器。多个监听器通过group-id和listener-id进行区分
-    // 仿照kafka中Group概念，同一group中的监听器负载分流处理被监听文件的新增数据，不同group复制接收到同样的数据
+    // (4)
     fs.addCacheQueueListener(new CacheQueueListener("group-id-2", "listener-id-2") {
         @Override
         public void process(String newLine) {
-            // 处理逻辑写在这里...
+            // (5)
         }
     });
     ```
+    > (1) 创建数据追加监听器实例
+    > 
+    > (2) 处理逻辑写在这里
+    > 
+    > (3) 添加创建好的监听器
+    > 
+    > (4) 可添加多个监听器。多个监听器通过group-id和listener-id进行区分。仿照kafka中Group概念，同一group中的监听器负载分流处理被监听文件的新增数据，不同group复制接收到同样的数据
+    > 
+    > (5) 处理逻辑写在这里
 
-5. 删除数据追加监听器
+6. 删除数据追加监听器
 
     ```java
-    // 可以将已添加的监听器删除
-    fs.deleteCacheQueueListener(pushListener);
+    fs.deleteCacheQueueListener(pushListener); // (1)
 
-    // 也可以通过group-id和listener-id进行删除
-    fs.deleteCacheQueueListener(CacheQueueListener.of("group-id", "listener-id"));
+    fs.deleteCacheQueueListener(CacheQueueListener.of("group-id", "listener-id")); // (2)
     ```
+    > (1) 可以将已添加的监听器删除
+    > 
+    > (2) 也可以通过group-id和listener-id进行删除
+    > 
 
-6. 启动监听
+7. 启动监听
 
     ```java
     fs.start();
@@ -78,7 +97,7 @@
     fs.startBlockUtilCancel();
     ```
 
-7. 关闭监听
+8. 关闭监听
 
     ```java
     fs.close();
