@@ -279,7 +279,9 @@ public class FileSniffer implements Closeable {
      */
     @Override
     public void close() throws IOException {
-        tailer.stop();
+        if (tailer != null) {
+            tailer.stop();
+        }
         logListenFlag = false;
         queueSizeCheckFlag = false;
         for (Map.Entry<String, Set<CacheQueueListener>> entry : listenerMap.entrySet()) {
