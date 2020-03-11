@@ -85,6 +85,15 @@ public class FileSniffer implements Closeable {
     }
 
     /**
+     * 单文件单例模式，所有监听相同文件的实例都是同一实例，当监听新文件时，创建新实例
+     * @return
+     */
+    public static FileSniffer getOrNewInstance(File logFile) {
+        //
+        return null;
+    }
+
+    /**
      * 注册日志监听器
      * @param listener
      */
@@ -155,7 +164,7 @@ public class FileSniffer implements Closeable {
                     }
                 }
                 try {
-                    Thread.sleep(10);
+                    Thread.sleep(100);
                 } catch (InterruptedException e) {
                     LOGGER.error("", e);
                 }
@@ -172,7 +181,7 @@ public class FileSniffer implements Closeable {
                     int batchSize = Math.min(LOG_CACHE.size(), 1000);
                     if (batchSize == 0) {
                         try {
-                            Thread.sleep(100);
+                            Thread.sleep(1000);
                         } catch (InterruptedException e) {
                             LOGGER.error("", e);
                         }

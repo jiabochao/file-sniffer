@@ -82,7 +82,7 @@ public abstract class CacheQueueListener {
                     }
                 }
                 try {
-                    Thread.sleep(10);
+                    Thread.sleep(100);
                 } catch (InterruptedException e) {
                     LOGGER.error("", e);
                 }
@@ -101,6 +101,12 @@ public abstract class CacheQueueListener {
                     String log = LOG_CACHE.poll();
                     if (log != null) {
                         process(log);
+                    } else {
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            LOGGER.error("", e);
+                        }
                     }
                 } catch (Exception e) {
                     LOGGER.error("", e);
@@ -138,6 +144,14 @@ public abstract class CacheQueueListener {
 
     public String getListenerId() {
         return this.listenerId;
+    }
+
+    public int getCacheQueueSize() {
+        return cacheQueueSize;
+    }
+
+    public void setCacheQueueSize(int cacheQueueSize) {
+        this.cacheQueueSize = cacheQueueSize;
     }
 
     @Override
