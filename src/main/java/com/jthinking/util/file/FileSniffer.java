@@ -256,7 +256,7 @@ public class FileSniffer implements Closeable {
                 super.handle(ex);
             }
 
-        }, 1000, false, 4096);
+        }, 1000, true, 4096);
 
         new Thread(tailer).start();
     }
