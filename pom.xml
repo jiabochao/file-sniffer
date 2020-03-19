@@ -6,7 +6,7 @@
 
     <groupId>com.jthinking.util</groupId>
     <artifactId>file-sniffer</artifactId>
-    <version>1.5</version>
+    <version>1.7</version>
 
     <name>file-sniffer</name>
     <url>https://github.com/jthinking/file-sniffer</url>
@@ -85,5 +85,26 @@
             <url>https://maven.pkg.github.com/jthinking/file-sniffer</url>
         </repository>
     </distributionManagement>
+
+    <profiles>
+
+        <profile>
+            <id>github</id>
+            <repositories>
+                <repository>
+                    <id>central</id>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                </repository>
+                <repository>
+                    <id>github</id>
+                    <name>GitHub jthinking Apache Maven Packages</name>
+                    <url>https://maven.pkg.github.com/jthinking/file-sniffer</url>
+                </repository>
+            </repositories>
+        </profile>
+
+    </profiles>
 
 </project>

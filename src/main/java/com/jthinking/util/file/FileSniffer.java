@@ -1,16 +1,22 @@
 package com.jthinking.util.file;
 
+import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.commons.io.input.Tailer;
 import org.apache.commons.io.input.TailerListenerAdapter;
+import org.apache.commons.io.monitor.FileAlterationListenerAdaptor;
+import org.apache.commons.io.monitor.FileAlterationMonitor;
+import org.apache.commons.io.monitor.FileAlterationObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class FileSniffer implements Closeable {
 
@@ -29,7 +35,7 @@ public class FileSniffer implements Closeable {
     /**
      * 监听文件
      */
-    private final File logFile;
+    private File logFile;
 
     /**
      * 缓存队列最大个数
@@ -59,6 +65,26 @@ public class FileSniffer implements Closeable {
     private Tailer tailer;
 
     /**
+     * Tailer监听队列
+     */
+    private ConcurrentLinkedDeque<Tailer> tailerList = new ConcurrentLinkedDeque<>();
+
+    /**
+     * 文件夹监听
+     */
+    private FileAlterationMonitor fileAlterationMonitor;
+
+    /**
+     * 需要监听的文件夹
+     */
+    private File monitorDir;
+
+    /**
+     * 需要监听的文件夹中的文件过滤通配符
+     */
+    private FileFilter fileFilter;
+
+    /**
      * 日志监听线程退出标识
      */
     private volatile boolean logListenFlag = true;
@@ -80,16 +106,44 @@ public class FileSniffer implements Closeable {
         }));
     }
 
+    @Deprecated
     public FileSniffer(File logFile) {
         this.logFile = logFile;
     }
 
     /**
-     * 单文件单例模式，所有监听相同文件的实例都是同一实例，当监听新文件时，创建新实例
+     * 日志文件监听支持通配符，支持多个文件，按最后修改时间排序，只监听最后三个文件
+     * @param logName
+     */
+    public FileSniffer(String logName) {
+        int i = logName.lastIndexOf("/");
+        String pathname;
+        String filename;
+        if (i != -1) {
+            if (i == 0) {
+                pathname = "/";
+            } else {
+                pathname = logName.substring(0, i);
+            }
+            if (i + 1 == logName.length()) {
+                filename = "*";
+            } else {
+                filename = logName.substring(i + 1);
+            }
+        } else {
+            pathname = ".";
+            filename = logName;
+        }
+        this.monitorDir = new File(pathname);
+        this.fileFilter = new WildcardFileFilter(filename);
+    }
+
+    /**
+     * TODO 单文件单例模式，所有监听相同文件的实例都是同一实例，当监听新文件时，创建新实例
      * @return
      */
     public static FileSniffer getOrNewInstance(File logFile) {
-        //
+        // TODO
         return null;
     }
 
@@ -228,6 +282,7 @@ public class FileSniffer implements Closeable {
         }).start();
     }
 
+    @Deprecated
     private void startTailer() {
         tailer = new Tailer(logFile, new TailerListenerAdapter() {
 
@@ -261,11 +316,100 @@ public class FileSniffer implements Closeable {
         new Thread(tailer).start();
     }
 
+    private void startTailer2() {
+        File[] files = monitorDir.listFiles(fileFilter);
+        if (files != null) {
+            addAndStartTailer(Arrays.stream(files).sorted(Comparator.comparingLong(File::lastModified)).toArray(File[]::new));
+        }
+        // 使用过滤器：装配过滤器，生成监听者
+        FileAlterationObserver observer = new FileAlterationObserver(monitorDir, fileFilter);
+        // 向监听者添加监听器，并注入业务服务
+        observer.addListener(new FileAlterationListenerAdaptor() {
+            @Override
+            public void onFileCreate(File file) {
+                addAndStartTailer(file);
+            }
+        });
+        // 创建文件变化监听器
+        this.fileAlterationMonitor = new FileAlterationMonitor(TimeUnit.SECONDS.toMillis(5), observer);
+        // 开启监听
+        try {
+            this.fileAlterationMonitor.start();
+        } catch (Exception e) {
+            LOGGER.error("", e);
+        }
+    }
+
+    private void addAndStartTailer(File... files) {
+        for (File file : files) {
+            Tailer tailer = new Tailer(file, new TailerListenerAdapter() {
+                @Override
+                public void fileNotFound() {
+                    LOGGER.error("{} file not found", logFile.getName());
+                    super.fileNotFound();
+                }
+                @Override
+                public void fileRotated() {
+                    //文件被外部的输入流改变
+                    super.fileRotated();
+                }
+                @Override
+                public void handle(String line) {
+                    //增加的文件的内容
+                    LOG_CACHE.add(line);
+                    super.handle(line);
+                }
+                @Override
+                public void handle(Exception ex) {
+                    LOGGER.error("", ex);
+                    super.handle(ex);
+                }
+            }, 1000, true, 4096);
+            new Thread(tailer).start();
+            tailerList.add(tailer);
+        }
+    }
+
+    private void listenTailerQueue() {
+        Thread thread = new Thread(() -> {
+            while (true) {
+                try {
+                    int count = tailerList.size() - 3;
+                    if (count > 0) {
+                        for (int i = 0; i < count; i++) {
+                            Tailer take = tailerList.poll();
+                            if (take == null) {
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException e) {
+                                    LOGGER.error("", e);
+                                }
+                                continue;
+                            }
+                            take.stop();
+                        }
+                    } else {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            LOGGER.error("", e);
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("", e);
+                }
+            }
+        });
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     /**
      * 启动FileSniffer
      */
     public void start() {
-        startTailer();
+        listenTailerQueue();
+        startTailer2();
         startQueueListen();
         startQueueSizeCheck();
     }
@@ -288,8 +432,18 @@ public class FileSniffer implements Closeable {
      */
     @Override
     public void close() throws IOException {
+        if (fileAlterationMonitor != null) {
+            try {
+                fileAlterationMonitor.stop();
+            } catch (Exception e) {
+                LOGGER.error("", e);
+            }
+        }
         if (tailer != null) {
             tailer.stop();
+        }
+        for (Tailer t : tailerList) {
+            t.stop();
         }
         logListenFlag = false;
         queueSizeCheckFlag = false;
