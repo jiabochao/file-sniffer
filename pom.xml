@@ -6,7 +6,7 @@
 
     <groupId>com.jthinking.util</groupId>
     <artifactId>file-sniffer</artifactId>
-    <version>1.7</version>
+    <version>1.7.1</version>
 
     <name>file-sniffer</name>
     <url>https://github.com/jthinking/file-sniffer</url>
