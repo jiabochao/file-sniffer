@@ -89,22 +89,6 @@ public class FileSniffer implements Closeable {
     private volatile boolean logListenFlag = true;
     private volatile boolean queueSizeCheckFlag = true;
 
-    /**
-     * 阻塞
-     */
-    //private CountDownLatch latch = new CountDownLatch(1);
-
-    /*{
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                close();
-            } catch (IOException e) {
-                LOGGER.error("", e);
-            }
-            latch.countDown();
-        }));
-    }*/
-
     @Deprecated
     public FileSniffer(File logFile) {
         this.logFile = logFile;
@@ -206,7 +190,7 @@ public class FileSniffer implements Closeable {
      * 缓存大小控制，删除老数据
      */
     private void startQueueSizeCheck() {
-        new Thread(() -> {
+        Thread thread = new Thread(() -> {
             while (queueSizeCheckFlag) {
                 int redundant = LOG_CACHE.size() - cacheQueueSize;
                 if (redundant > 0) {
@@ -223,11 +207,13 @@ public class FileSniffer implements Closeable {
                 }
             }
             LOGGER.info("FileSniffer QueueSizeCheck thread {} exit!", Thread.currentThread().getId());
-        }).start();
+        });
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private void startQueueListen() {
-        new Thread(() -> {
+        Thread thread = new Thread(() -> {
             while (logListenFlag) {
                 try {
                     List<String> batch = new ArrayList<>();
@@ -278,44 +264,12 @@ public class FileSniffer implements Closeable {
                 }
             }
             LOGGER.info("FileSniffer QueueListen thread {} exit!", Thread.currentThread().getId());
-        }).start();
+        });
+        thread.setDaemon(true);
+        thread.start();
     }
 
-    @Deprecated
     private void startTailer() {
-        tailer = new Tailer(logFile, new TailerListenerAdapter() {
-
-            @Override
-            public void fileNotFound() {
-                LOGGER.error("{} file not found", logFile.getName());
-                super.fileNotFound();
-            }
-
-            @Override
-            public void fileRotated() {
-                //文件被外部的输入流改变
-                super.fileRotated();
-            }
-
-            @Override
-            public void handle(String line) {
-                //增加的文件的内容
-                LOG_CACHE.add(line);
-                super.handle(line);
-            }
-
-            @Override
-            public void handle(Exception ex) {
-                LOGGER.error("", ex);
-                super.handle(ex);
-            }
-
-        }, 1000, true, 4096);
-
-        new Thread(tailer).start();
-    }
-
-    private void startTailer2() {
         File[] files = monitorDir.listFiles(fileFilter);
         if (files != null) {
             addAndStartTailer(Arrays.stream(files).sorted(Comparator.comparingLong(File::lastModified)).toArray(File[]::new));
@@ -365,6 +319,7 @@ public class FileSniffer implements Closeable {
                 }
             }, 1000, true, 4096);
             new Thread(tailer).start();
+            LOGGER.info("Add and started tailer: {}, total tailer: {}", file, tailerList.size());
             tailerList.add(tailer);
         }
     }
@@ -373,7 +328,8 @@ public class FileSniffer implements Closeable {
         Thread thread = new Thread(() -> {
             while (true) {
                 try {
-                    int count = tailerList.size() - 3;
+                    int maxTailerSize = 3;
+                    int count = tailerList.size() - maxTailerSize;
                     if (count > 0) {
                         for (int i = 0; i < count; i++) {
                             Tailer take = tailerList.poll();
@@ -386,6 +342,7 @@ public class FileSniffer implements Closeable {
                                 continue;
                             }
                             take.stop();
+                            LOGGER.info("Tailer list size is bigger than {}, Auto stop tailer: {}", maxTailerSize, take.getFile());
                         }
                     } else {
                         try {
@@ -408,22 +365,10 @@ public class FileSniffer implements Closeable {
      */
     public void start() {
         listenTailerQueue();
-        startTailer2();
+        startTailer();
         startQueueListen();
         startQueueSizeCheck();
     }
-
-    /**
-     * 启动FileSniffer并阻塞，直到Ctrl+C退出
-     */
-    /*public void startBlockUtilCancel() {
-        start();
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            LOGGER.error("", e);
-        }
-    }*/
 
     /**
      * 关闭FileSniffer
